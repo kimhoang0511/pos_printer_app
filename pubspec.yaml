@@ -1,0 +1,32 @@
+name: pos_printer_app
+description: Ứng dụng in bill ESC/POS cho quán cafe Trung Nguyên
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # ESC/POS command generator
+  esc_pos_utils_plus: ^2.0.4
+  # Network printing via TCP socket (all platforms — dart:io built-in)
+  # Bluetooth: chỉ dùng trên Android/iOS, thêm riêng khi cần
+  # UI helpers
+  provider: ^6.1.1
+  intl: ^0.19.0
+  shared_preferences: ^2.2.2
+  cupertino_icons: ^1.0.6
+  web_socket_channel: ^2.4.0
+  http: ^1.2.0
+  wakelock_plus: ^1.2.8
+  app_links: ^6.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
