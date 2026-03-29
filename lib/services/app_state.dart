@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/bill_model.dart';
+import '../models/kitchen_ticket_model.dart';
 import '../models/printer_settings.dart';
 import '../models/remote_settings.dart';
 import 'printer_service.dart';
@@ -59,9 +60,14 @@ class AppState extends ChangeNotifier {
     _statusMessage = 'Đang gửi lệnh in...';
     notifyListeners();
 
+    // Bill in tại lễ tân — dùng billIpAddress/billPort
+    final billPrinterSettings = _settings.copyWith(
+      ipAddress: _settings.billIpAddress,
+      port: _settings.billPort,
+    );
     final result = await PrinterService.printViaNetwork(
       bill: _bill,
-      settings: _settings,
+      settings: billPrinterSettings,
     );
 
     _printStatus = result.success ? PrintStatus.success : PrintStatus.error;
@@ -78,6 +84,27 @@ class AppState extends ChangeNotifier {
   Future<void> printBillFromRemote(Bill bill) async {
     updateBill(bill);
     await printBill();
+  }
+
+  /// Gọi khi nhận lệnh in phiếu chế biến từ WebSocket
+  Future<void> printKitchenTicketFromRemote(KitchenTicket ticket) async {
+    _printStatus = PrintStatus.printing;
+    _statusMessage = 'Đang in phiếu chế biến...';
+    notifyListeners();
+
+    final result = await PrinterService.printKitchenTicketViaNetwork(
+      ticket: ticket,
+      settings: _settings,
+    );
+
+    _printStatus = result.success ? PrintStatus.success : PrintStatus.error;
+    _statusMessage = result.message;
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 3));
+    _printStatus = PrintStatus.idle;
+    _statusMessage = '';
+    notifyListeners();
   }
 
   /// Gọi API để lấy lệnh in đang chờ (fallback khi mất WS)
@@ -114,17 +141,27 @@ class AppState extends ChangeNotifier {
 
       int printed = 0;
       for (final job in jobs) {
-        final data = job['data'] ?? job;
+        final data = (job['data'] ?? job) as Map<String, dynamic>;
         final requestId = job['requestId'] as String?;
+        final event = job['event'] as String? ?? 'print_bill';
         try {
-          final bill = Bill.fromJson(data as Map<String, dynamic>);
-          await printBillFromRemote(bill);
-          printed++;
-          if (requestId != null) {
-            _ackJob(requestId, 'printed');
+          if (event == 'print_kitchen') {
+            final ticket = KitchenTicket.fromJson(data);
+            final ref = ticket.requestedAt;
+            if (ref != null && DateTime.now().difference(ref).abs().inSeconds > 60) {
+              debugPrint('[API] Bỏ qua phiếu chế biến #${ticket.orderId} — quá 30 giây');
+              if (requestId != null) _ackJob(requestId, 'printed');
+              continue;
+            }
+            await printKitchenTicketFromRemote(ticket);
+          } else {
+            final bill = Bill.fromJson(data);
+            await printBillFromRemote(bill);
           }
+          printed++;
+          if (requestId != null) _ackJob(requestId, 'printed');
         } catch (e) {
-          debugPrint('[API] Failed to print job: $e');
+          debugPrint('[API] Failed to print job ($event): $e');
           if (requestId != null) _ackJob(requestId, 'error');
         }
       }
@@ -170,7 +207,10 @@ class AppState extends ChangeNotifier {
           prefs.getInt('connectionType') ?? defaults.connectionType.index],
       ipAddress: prefs.getString('ipAddress') ?? defaults.ipAddress,
       port: prefs.getInt('port') ?? defaults.port,
+      billIpAddress: prefs.getString('billIpAddress') ?? defaults.billIpAddress,
+      billPort: prefs.getInt('billPort') ?? defaults.billPort,
       paperWidth: prefs.getInt('paperWidth') ?? defaults.paperWidth,
+      unicodeVietnamese: prefs.getBool('unicodeVietnamese') ?? defaults.unicodeVietnamese,
     );
     _remoteSettings = RemoteSettings(
       serverBaseUrl: prefs.getString('serverBaseUrl') ?? '',
@@ -186,7 +226,10 @@ class AppState extends ChangeNotifier {
     await prefs.setInt('connectionType', _settings.connectionType.index);
     await prefs.setString('ipAddress', _settings.ipAddress);
     await prefs.setInt('port', _settings.port);
+    await prefs.setString('billIpAddress', _settings.billIpAddress);
+    await prefs.setInt('billPort', _settings.billPort);
     await prefs.setInt('paperWidth', _settings.paperWidth);
+    await prefs.setBool('unicodeVietnamese', _settings.unicodeVietnamese);
   }
 
   Future<void> _saveRemoteSettings() async {

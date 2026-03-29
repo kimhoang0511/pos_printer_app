@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../main.dart' show showToast;
 import '../models/bill_model.dart';
+import '../models/kitchen_ticket_model.dart';
 import '../models/remote_settings.dart';
 import 'app_state.dart';
 import 'printer_service.dart' show PrintStatus;
@@ -91,6 +92,11 @@ class WebSocketService extends ChangeNotifier {
             map['data'] as Map<String, dynamic>,
             map['requestId'] as String?,
           );
+        case 'print_kitchen':
+          _handlePrintKitchen(
+            map['data'] as Map<String, dynamic>,
+            map['requestId'] as String?,
+          );
         case 'pong':
           break;
         default:
@@ -172,6 +178,42 @@ class WebSocketService extends ChangeNotifier {
       debugPrint('[WS] Failed to parse bill data: $e');
       if (requestId != null) _sendAck(requestId, 'error');
     }
+  }
+
+  void _handlePrintKitchen(Map<String, dynamic> data, String? requestId) {
+    if (_appState.printStatus == PrintStatus.printing) {
+      debugPrint('[WS] Busy printing, rejecting print_kitchen event');
+      if (requestId != null) _sendAck(requestId, 'busy');
+      return;
+    }
+
+    try {
+      final ticket = KitchenTicket.fromJson(data);
+
+      if (_isKitchenTicketExpired(ticket)) {
+        debugPrint('[WS] Bỏ qua phiếu chế biến #${ticket.orderId} — quá 30 giây');
+        if (requestId != null) _sendAck(requestId, 'printed');
+        return;
+      }
+
+      showToast('🖨 In phiếu chế biến — Bàn ${ticket.tableNumber}');
+      _appState.printKitchenTicketFromRemote(ticket).then((_) {
+        if (requestId != null) _sendAck(requestId, 'printed');
+      }).catchError((e) {
+        showToast('Lỗi in phiếu chế biến bàn ${ticket.tableNumber}', isError: true);
+        if (requestId != null) _sendAck(requestId, 'error');
+      });
+    } catch (e) {
+      debugPrint('[WS] Failed to parse kitchen ticket data: $e');
+      if (requestId != null) _sendAck(requestId, 'error');
+    }
+  }
+
+  /// Trả về true nếu thời điểm yêu cầu in cách hiện tại > 30 giây.
+  bool _isKitchenTicketExpired(KitchenTicket ticket) {
+    final ref = ticket.requestedAt;
+    if (ref == null) return false;
+    return DateTime.now().difference(ref).abs().inSeconds > 60;
   }
 
   void _sendAck(String requestId, String status) {

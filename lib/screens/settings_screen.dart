@@ -5,6 +5,7 @@ import '../models/printer_settings.dart';
 import '../models/remote_settings.dart';
 import '../services/app_state.dart';
 import '../services/printer_scanner.dart';
+import '../services/printer_service.dart';
 import '../services/websocket_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -17,8 +18,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   // Printer settings
   late PrinterConnectionType _connectionType;
+  // Địa chỉ 1 — Máy in bếp (Kitchen Ticket)
   late TextEditingController _ipCtrl;
   late TextEditingController _portCtrl;
+  // Địa chỉ 2 — Máy in lễ tân (Bill Ticket)
+  late TextEditingController _billIpCtrl;
+  late TextEditingController _billPortCtrl;
   late int _paperWidth;
 
   // Remote settings
@@ -26,10 +31,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _slugCtrl;
   late bool _wsEnabled;
 
-  // Scanner state
-  bool _scanning = false;
-  int _scanProgress = 0;
-  List<ScanResult> _scanResults = [];
+  late bool _unicodeVietnamese;
+
+  // Code page test state
+  static const _codePages = [
+    (label: 'Mặc định máy in', id: null),
+    (label: 'PC437 — USA/Standard', id: 0),
+    (label: 'PC850 — Multilingual', id: 2),
+    (label: 'WPC1252 — Windows Latin', id: 16),
+    (label: 'PC1257 — Baltic', id: 30),
+    (label: 'CP1258 — Vietnamese', id: 36),
+    (label: 'WPC1258 — Vietnamese (WPC)', id: 94),
+  ];
+  int _selectedCpIndex = 0; // index vào _codePages
+  bool _cpTesting = false;
 
   @override
   void initState() {
@@ -38,7 +53,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _connectionType = s.connectionType;
     _ipCtrl = TextEditingController(text: s.ipAddress);
     _portCtrl = TextEditingController(text: s.port.toString());
+    _billIpCtrl = TextEditingController(text: s.billIpAddress);
+    _billPortCtrl = TextEditingController(text: s.billPort.toString());
     _paperWidth = s.paperWidth;
+    _unicodeVietnamese = s.unicodeVietnamese;
 
     final r = context.read<AppState>().remoteSettings;
     _serverBaseUrlCtrl = TextEditingController(text: r.serverBaseUrl);
@@ -50,34 +68,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _ipCtrl.dispose();
     _portCtrl.dispose();
+    _billIpCtrl.dispose();
+    _billPortCtrl.dispose();
     _serverBaseUrlCtrl.dispose();
     _slugCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _startScan() async {
-    setState(() {
-      _scanning = true;
-      _scanProgress = 0;
-      _scanResults = [];
-    });
-    try {
-      final results = await PrinterScanner.scan(
-        port: int.tryParse(_portCtrl.text) ?? 9100,
-        onProgress: (scanned, total) {
-          if (mounted) setState(() => _scanProgress = scanned);
-        },
-      );
-      if (mounted) setState(() => _scanResults = results);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi quét mạng: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _scanning = false);
-    }
+
+  Future<void> _printCodePageTest() async {
+    final settings = PrinterSettings(
+      connectionType: _connectionType,
+      ipAddress: _ipCtrl.text.trim(),
+      port: int.tryParse(_portCtrl.text) ?? 9100,
+      paperWidth: _paperWidth,
+    );
+    final cp = _codePages[_selectedCpIndex];
+
+    setState(() => _cpTesting = true);
+    final result = await PrinterService.printCodePageTest(
+      settings: settings,
+      codePageId: cp.id,
+    );
+    if (!mounted) return;
+    setState(() => _cpTesting = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message),
+        backgroundColor: result.success ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   void _save() {
@@ -86,7 +107,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             connectionType: _connectionType,
             ipAddress: _ipCtrl.text.trim(),
             port: int.tryParse(_portCtrl.text) ?? 9100,
+            billIpAddress: _billIpCtrl.text.trim(),
+            billPort: int.tryParse(_billPortCtrl.text) ?? 9100,
             paperWidth: _paperWidth,
+            unicodeVietnamese: _unicodeVietnamese,
           ),
         );
     context.read<AppState>().updateRemoteSettings(
@@ -163,125 +187,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Cài đặt mạng',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _ipCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Địa chỉ IP máy in',
-                        hintText: '192.168.1.100',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.router),
-                      ),
-                      keyboardType: TextInputType.number,
+                    const SizedBox(height: 16),
+
+                    // ── Địa chỉ 1: Máy in bếp ──────────────────
+                    _PrinterAddressGroup(
+                      label: 'Địa chỉ 1 — Máy in bếp',
+                      subtitle: 'Dùng cho phiếu chế biến (Kitchen Ticket)',
+                      icon: Icons.restaurant,
+                      iconColor: Colors.orange.shade700,
+                      ipCtrl: _ipCtrl,
+                      portCtrl: _portCtrl,
+                      onScanPick: (ip) => setState(() => _ipCtrl.text = ip),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _portCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Port (mặc định: 9100)',
-                        hintText: '9100',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.numbers),
-                      ),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+
+                    const Divider(height: 28),
+
+                    // ── Địa chỉ 2: Máy in lễ tân ───────────────
+                    _PrinterAddressGroup(
+                      label: 'Địa chỉ 2 — Máy in lễ tân',
+                      subtitle: 'Dùng cho in bill (Bill Ticket)',
+                      icon: Icons.receipt_long,
+                      iconColor: Colors.blue.shade700,
+                      ipCtrl: _billIpCtrl,
+                      portCtrl: _billPortCtrl,
+                      onScanPick: (ip) => setState(() => _billIpCtrl.text = ip),
                     ),
-                    const SizedBox(height: 12),
-                    // Nút quét mạng LAN
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _scanning ? null : _startScan,
-                        icon: _scanning
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.wifi_find, size: 18),
-                        label: Text(
-                          _scanning
-                              ? 'Đang quét... ($_scanProgress/254)'
-                              : 'Dò tìm máy in trong mạng LAN',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF6B3A2A),
-                          side: const BorderSide(color: Color(0xFF6B3A2A)),
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                        ),
-                      ),
-                    ),
-                    // Progress bar khi đang quét
-                    if (_scanning) ...[
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: _scanProgress / 254,
-                        backgroundColor: Colors.grey.shade200,
-                        color: const Color(0xFF6B3A2A),
-                      ),
-                    ],
-                    // Kết quả quét
-                    if (!_scanning && _scanResults.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Máy in tìm thấy — nhấn để chọn:',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 6),
-                      ...(_scanResults.map((r) => InkWell(
-                            onTap: () {
-                              setState(() => _ipCtrl.text = r.ip);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Đã chọn ${r.ip}'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.green.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.green.shade50,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.print,
-                                      size: 16, color: Colors.green),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    r.ip,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'port ${r.port}',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_ios,
-                                      size: 12, color: Colors.grey),
-                                ],
-                              ),
-                            ),
-                          ))),
-                    ],
-                    if (!_scanning && _scanResults.isEmpty && _scanProgress == 254) ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Không tìm thấy máy in nào trong mạng LAN.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
+
                     const SizedBox(height: 8),
                     const Text(
                       'Hướng dẫn: Vào cài đặt mạng máy in để xem IP.\n'
@@ -366,6 +297,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 12),
 
+          const SizedBox(height: 12),
+
+          // ── Encoding tiếng Việt ───────────────────────────────
+          Card(
+            child: SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              title: const Text('Máy in hỗ trợ tiếng Việt'),
+              subtitle: const Text(
+                'Bật nếu máy in đọc được UTF-8/Unicode.\n'
+                'Tắt = chuyển về ASCII không dấu (mặc định).',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: _unicodeVietnamese,
+              onChanged: (v) => setState(() => _unicodeVietnamese = v),
+            ),
+          ),
+
           // ── Kết nối máy chủ từ xa ──────────────────────────────
           Card(
             child: Padding(
@@ -437,6 +385,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
+          const SizedBox(height: 12),
+
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _save,
@@ -450,6 +400,194 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Một nhóm IP + Port + quét mạng cho một máy in.
+class _PrinterAddressGroup extends StatefulWidget {
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final Color iconColor;
+  final TextEditingController ipCtrl;
+  final TextEditingController portCtrl;
+  final void Function(String ip) onScanPick;
+
+  const _PrinterAddressGroup({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.iconColor,
+    required this.ipCtrl,
+    required this.portCtrl,
+    required this.onScanPick,
+  });
+
+  @override
+  State<_PrinterAddressGroup> createState() => _PrinterAddressGroupState();
+}
+
+class _PrinterAddressGroupState extends State<_PrinterAddressGroup> {
+  bool _scanning = false;
+  int _scanProgress = 0;
+  List<ScanResult> _scanResults = [];
+
+  Future<void> _startScan() async {
+    setState(() {
+      _scanning = true;
+      _scanProgress = 0;
+      _scanResults = [];
+    });
+    try {
+      final results = await PrinterScanner.scan(
+        port: int.tryParse(widget.portCtrl.text) ?? 9100,
+        onProgress: (scanned, total) {
+          if (mounted) setState(() => _scanProgress = scanned);
+        },
+      );
+      if (mounted) setState(() => _scanResults = results);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi quét mạng: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(widget.icon, size: 18, color: widget.iconColor),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, color: widget.iconColor)),
+                Text(widget.subtitle,
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: widget.ipCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Địa chỉ IP',
+            hintText: '192.168.1.100',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.router),
+            isDense: true,
+          ),
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: widget.portCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Port (mặc định: 9100)',
+            hintText: '9100',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.numbers),
+            isDense: true,
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _scanning ? null : _startScan,
+            icon: _scanning
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.wifi_find, size: 18),
+            label: Text(
+              _scanning
+                  ? 'Đang quét... ($_scanProgress/254)'
+                  : 'Dò tìm máy in trong mạng LAN',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: widget.iconColor,
+              side: BorderSide(color: widget.iconColor),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+          ),
+        ),
+        if (_scanning) ...[
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: _scanProgress / 254,
+            backgroundColor: Colors.grey.shade200,
+            color: widget.iconColor,
+          ),
+        ],
+        if (!_scanning && _scanResults.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text('Máy in tìm thấy — nhấn để chọn:',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 4),
+          ..._scanResults.map((r) => InkWell(
+                onTap: () {
+                  widget.onScanPick(r.ip);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Đã chọn ${r.ip}'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.green.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.green.shade50,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.print, size: 16, color: Colors.green),
+                      const SizedBox(width: 8),
+                      Text(r.ip,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14)),
+                      const Spacer(),
+                      Text('port ${r.port}',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_ios,
+                          size: 12, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              )),
+        ],
+        if (!_scanning && _scanResults.isEmpty && _scanProgress == 254)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Không tìm thấy máy in nào trong mạng LAN.',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ),
+      ],
     );
   }
 }
