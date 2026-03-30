@@ -120,13 +120,68 @@ class BillPreview extends StatelessWidget {
                   numFmt.format(bill.finalTotal.toInt()),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                  fontSize: 16,
                   ),
                 ),
               ],
             ),
           ),
           const Divider(thickness: 1.5),
+          if (bill.bankQrUrl != null ||
+              bill.bankAccountNumber != null ||
+              bill.bankAccountName != null ||
+              bill.bankName != null) ...[
+            const SizedBox(height: 6),
+            const Text(
+              '--- Chuyển khoản ngân hàng ---',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            if (bill.bankQrUrl != null)
+              Center(
+                child: Image.network(
+                  bill.bankQrUrl!,
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            if (bill.bankName != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  bill.bankName!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            if (bill.bankAccountNumber != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  bill.bankAccountNumber!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+            if (bill.bankAccountName != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  bill.bankAccountName!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            const SizedBox(height: 6),
+            const Divider(thickness: 1.5),
+          ],
           const SizedBox(height: 8),
           Text(
             bill.footer,

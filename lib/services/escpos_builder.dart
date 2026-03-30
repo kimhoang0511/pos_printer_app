@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import '../models/bill_model.dart';
 import '../models/kitchen_ticket_model.dart';
@@ -357,6 +359,52 @@ class EscPosBuilder {
 
     bytes += generator.hr();
 
+    // ── Bank info ───────────────────────────────────────────────
+    final hasBankInfo = (bill.bankName != null && bill.bankName!.isNotEmpty) ||
+        (bill.bankAccountNumber != null && bill.bankAccountNumber!.isNotEmpty) ||
+        (bill.bankAccountName != null && bill.bankAccountName!.isNotEmpty) ||
+        (bill.bankQrUrl != null && bill.bankQrUrl!.isNotEmpty);
+
+    if (hasBankInfo) {
+      bytes += generator.textEncoded(
+        eb('--- Chuyen khoan ngan hang ---'),
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+      // QR code image
+      if (bill.bankQrUrl != null && bill.bankQrUrl!.isNotEmpty) {
+        final qrImage = await _downloadImage(bill.bankQrUrl!);
+        if (qrImage != null) {
+          final printWidth = effectivePaperWidth == 80 ? 340 : 200;
+          final resized = img.copyResize(qrImage, width: printWidth, height: printWidth);
+          bytes += generator.image(resized, align: PosAlign.center);
+        }
+      }
+      if (bill.bankName != null && bill.bankName!.isNotEmpty) {
+        bytes += generator.textEncoded(
+          eb(bill.bankName!),
+          styles: const PosStyles(align: PosAlign.center),
+        );
+      }
+      if (bill.bankAccountNumber != null && bill.bankAccountNumber!.isNotEmpty) {
+        bytes += generator.textEncoded(
+          eb(bill.bankAccountNumber!),
+          styles: const PosStyles(
+            align: PosAlign.center,
+            bold: true,
+            height: PosTextSize.size2,
+            width: PosTextSize.size1,
+          ),
+        );
+      }
+      if (bill.bankAccountName != null && bill.bankAccountName!.isNotEmpty) {
+        bytes += generator.textEncoded(
+          eb(bill.bankAccountName!),
+          styles: const PosStyles(align: PosAlign.center),
+        );
+      }
+      bytes += generator.hr();
+    }
+
     // ── Footer ──────────────────────────────────────────────────
     bytes += generator.textEncoded(
       eb(bill.footer),
@@ -543,6 +591,26 @@ class EscPosBuilder {
       }
     }
     return map.values.toList();
+  }
+
+  /// Tải ảnh từ URL (http/https) hoặc Data URL (data:image/...;base64,...).
+  static Future<img.Image?> _downloadImage(String url) async {
+    try {
+      if (url.startsWith('data:')) {
+        // Data URL: data:image/jpeg;base64,<base64data>
+        final commaIdx = url.indexOf(',');
+        if (commaIdx == -1) return null;
+        final base64Data = url.substring(commaIdx + 1);
+        final bytes = base64Decode(base64Data);
+        return img.decodeImage(bytes);
+      } else {
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+        if (response.statusCode != 200) return null;
+        return img.decodeImage(response.bodyBytes);
+      }
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Word-wraps [text] so each line is at most [maxLen] characters.

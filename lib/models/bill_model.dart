@@ -40,6 +40,10 @@ class Bill {
   final double finalTotal;
   final String footer;
   final int? paperWidth;
+  final String? bankName;
+  final String? bankAccountName;
+  final String? bankAccountNumber;
+  final String? bankQrUrl;
 
   Bill({
     required this.shopName,
@@ -57,6 +61,10 @@ class Bill {
     required this.finalTotal,
     this.footer = 'Xin cảm ơn Quý khách',
     this.paperWidth,
+    this.bankName,
+    this.bankAccountName,
+    this.bankAccountNumber,
+    this.bankQrUrl,
   });
 
   factory Bill.fromJson(Map<String, dynamic> json) {
@@ -80,6 +88,10 @@ class Bill {
       finalTotal: (json['finalTotal'] as num?)?.toDouble() ?? baseTotal,
       footer: json['footer'] as String? ?? 'Xin cảm ơn Quý khách',
       paperWidth: json['paperWidth'] as int?,
+      bankName: json['bankName'] as String?,
+      bankAccountName: json['bankAccountName'] as String?,
+      bankAccountNumber: json['bankAccountNumber'] as String?,
+      bankQrUrl: json['bankQrUrl'] as String?,
     );
   }
 

@@ -359,7 +359,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _serverBaseUrlCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Địa chỉ máy chủ',
-                      hintText: 'https://api.example.com',
+                      hintText: 'https://api.kinzo.vn',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.cloud),
                     ),

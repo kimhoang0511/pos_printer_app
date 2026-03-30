@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -20,10 +22,33 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>pos-printer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pos-printer</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Ứng dụng cần Bluetooth để kết nối máy in nhiệt.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Ứng dụng cần Bluetooth để kết nối máy in nhiệt.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_printer._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Ứng dụng cần truy cập mạng nội bộ để in qua Wi-Fi/LAN.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -42,32 +67,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<!-- Deep link: pos-printer://print -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>pos-printer</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>pos-printer</string>
-			</array>
-		</dict>
-	</array>
-	<!-- Bluetooth permission -->
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Ứng dụng cần Bluetooth để kết nối máy in nhiệt.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Ứng dụng cần Bluetooth để kết nối máy in nhiệt.</string>
-	<!-- Local network permission for TCP printing -->
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Ứng dụng cần truy cập mạng nội bộ để in qua Wi-Fi/LAN.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_printer._tcp</string>
 	</array>
 </dict>
 </plist>

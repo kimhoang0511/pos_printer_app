@@ -6,7 +6,7 @@ class RemoteSettings {
   final bool wsEnabled;
 
   const RemoteSettings({
-    this.serverBaseUrl = '',
+    this.serverBaseUrl = 'https://api.kinzo.vn',
     this.restaurantSlug = '',
     this.wsEnabled = false,
   });

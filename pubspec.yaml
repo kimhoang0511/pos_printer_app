@@ -22,6 +22,7 @@ dependencies:
   http: ^1.2.0
   wakelock_plus: ^1.2.8
   app_links: ^6.3.3
+  image: ^4.1.0
 
 dev_dependencies:
   flutter_test:
