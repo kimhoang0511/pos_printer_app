@@ -115,7 +115,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
     context.read<AppState>().updateRemoteSettings(
           RemoteSettings(
-            serverBaseUrl: _serverBaseUrlCtrl.text.trim(),
+            serverBaseUrl: _serverBaseUrlCtrl.text.trim().isEmpty
+                ? 'https://api.kinzo.vn'
+                : _serverBaseUrlCtrl.text.trim(),
             restaurantSlug: _slugCtrl.text.trim(),
             wsEnabled: _wsEnabled,
           ),
