@@ -374,33 +374,10 @@ class EscPosBuilder {
       if (bill.bankQrUrl != null && bill.bankQrUrl!.isNotEmpty) {
         final qrImage = await _downloadImage(bill.bankQrUrl!);
         if (qrImage != null) {
-          final printWidth = effectivePaperWidth == 80 ? 340 : 200;
+          final printWidth = effectivePaperWidth == 80 ? 480 : 200;
           final resized = img.copyResize(qrImage, width: printWidth, height: printWidth);
           bytes += generator.image(resized, align: PosAlign.center);
         }
-      }
-      if (bill.bankName != null && bill.bankName!.isNotEmpty) {
-        bytes += generator.textEncoded(
-          eb(bill.bankName!),
-          styles: const PosStyles(align: PosAlign.center),
-        );
-      }
-      if (bill.bankAccountNumber != null && bill.bankAccountNumber!.isNotEmpty) {
-        bytes += generator.textEncoded(
-          eb(bill.bankAccountNumber!),
-          styles: const PosStyles(
-            align: PosAlign.center,
-            bold: true,
-            height: PosTextSize.size2,
-            width: PosTextSize.size1,
-          ),
-        );
-      }
-      if (bill.bankAccountName != null && bill.bankAccountName!.isNotEmpty) {
-        bytes += generator.textEncoded(
-          eb(bill.bankAccountName!),
-          styles: const PosStyles(align: PosAlign.center),
-        );
       }
       bytes += generator.hr();
     }

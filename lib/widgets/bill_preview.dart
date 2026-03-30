@@ -142,41 +142,10 @@ class BillPreview extends StatelessWidget {
               Center(
                 child: Image.network(
                   bill.bankQrUrl!,
-                  width: 120,
-                  height: 120,
+                  width: 180,
+                  height: 180,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            if (bill.bankName != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  bill.bankName!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            if (bill.bankAccountNumber != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  bill.bankAccountNumber!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-            if (bill.bankAccountName != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  bill.bankAccountName!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12),
                 ),
               ),
             const SizedBox(height: 6),
